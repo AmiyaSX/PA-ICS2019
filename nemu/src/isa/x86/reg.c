@@ -57,5 +57,25 @@ void isa_reg_display() {
 }
 
 uint32_t isa_reg_str2val(const char *s, bool *success) {
-  return 0;
+  	if (strcmp("pc",s)==0) {*success=1;return cpu.pc;}
+	for (int i=0;i<8;++i)
+		if (strcmp(regsl[i],s)==0)
+		{
+			*success=1;
+			return cpu.gpr[i]._32;
+		}
+	for (int i=0;i<8;++i)
+         if (strcmp(regsw[i],s)==0)
+         {
+             *success=1;
+             return cpu.gpr[i]._16;
+         }
+	for (int i=0;i<8;++i)
+         if (strcmp(regsb[i],s)==0)
+         {
+             *success=1;
+            return cpu.gpr[i]._8[0];
+         }   
+	*success=0;
+	return 0;
 }

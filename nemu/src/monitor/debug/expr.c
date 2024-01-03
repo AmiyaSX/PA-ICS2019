@@ -7,7 +7,7 @@
 #include <regex.h>
 
 enum {
-  TK_NOTYPE = 256, TK_EQ
+  TK_NOTYPE = 256, TK_NUM,TK_EQ,TK_NEQ,TK_AND,TK_REG,TK_HEX,
 
   /* TODO: Add more token types */
 
@@ -23,8 +23,18 @@ static struct rule {
    */
 
   {" +", TK_NOTYPE},    // spaces
-  {"\\+", '+'},         // plus
-  {"==", TK_EQ}         // equal
+    {"\\(",'('},			// (
+  {"0\\x[0-9|a-f|A-F]+",TK_HEX},    // 16 number
+  {"[0-9]+",TK_NUM},	// 10 number
+  {"\\*",'*'},		    // mul
+  {"\\/",'/'},			// div
+  {"\\-",'-'},          // sub
+  {"\\+",'+'},         // plus
+  {"==", TK_EQ},         // equal
+  {"!=",TK_NEQ},		//not equal
+  {"&&",TK_AND},			//logical and
+  {"\\$(eax|ecx|edx|ebx|esp|ebp|esi|edi|ax|cx|dx|bx|sp|bp|si|di|al|cl|dl|bl|ah|ch|dh|bh|pc)",TK_REG},		//
+  {"\\)",')'},          // )
 };
 
 #define NR_REGEX (sizeof(rules) / sizeof(rules[0]) )
@@ -67,19 +77,63 @@ static bool make_token(char *e) {
     /* Try all rules one by one. */
     for (i = 0; i < NR_REGEX; i ++) {
       if (regexec(&re[i], e + position, 1, &pmatch, 0) == 0 && pmatch.rm_so == 0) {
-        char *substr_start = e + position;
-        int substr_len = pmatch.rm_eo;
+          char *substr_start = e + position;
+          int substr_len = pmatch.rm_eo;
 
-        Log("match rules[%d] = \"%s\" at position %d with len %d: %.*s",
-            i, rules[i].regex, position, substr_len, substr_len, substr_start);
-        position += substr_len;
+          Log("match rules[%d] = \"%s\" at position %d with len %d: %.*s",
+              i, rules[i].regex, position, substr_len, substr_len, substr_start);
+          position += substr_len;
 
-        /* TODO: Now a new token is recognized with rules[i]. Add codes
-         * to record the token in the array `tokens'. For certain types
-         * of tokens, some extra actions should be performed.
-         */
+          /* TODO: Now a new token is recognized with rules[i]. Add codes
+          * to record the token in the array `tokens'. For certain types
+          * of tokens, some extra actions should be performed.
+          */
 
-        switch (rules[i].token_type) {
+          switch (rules[i].token_type) {
+          case TK_NOTYPE:break;
+          case TK_NUM:
+          {
+          if (substr_len>32)
+          {
+            puts("The length of number is too long!");
+            return false;
+          }
+          tokens[nr_token].type='0';
+          strncpy(tokens[nr_token].str,substr_start,substr_len);
+          tokens[nr_token].str[substr_len]='\0';
+          ++nr_token;
+          break;
+          }
+          case TK_HEX:
+          {
+          if (substr_len>32)
+          {				
+                    puts("The length of number is too long!");
+                    return false;
+          }
+                tokens[nr_token].type='6';
+                strncpy(tokens[nr_token].str,substr_start+2,substr_len-2);
+                tokens[nr_token].str[substr_len-2]='\0';
+                ++nr_token;
+                break;
+          }
+          case '(':{tokens[nr_token++].type='(';break;}
+          case '*':{tokens[nr_token++].type='*';break;}
+          case '/':{tokens[nr_token++].type='/';break;}
+          case '-':{tokens[nr_token++].type='-';break;}
+          case '+':{tokens[nr_token++].type='+';break;}
+          case TK_EQ:{tokens[nr_token++].type='=';break;}
+          case TK_NEQ:{tokens[nr_token++].type='!';break;}
+          case TK_AND:{tokens[nr_token++].type='&';break;}
+          case TK_REG:
+          {
+            tokens[nr_token].type='r';
+            strncpy(tokens[nr_token].str,substr_start+1,substr_len-1);
+            tokens[nr_token].str[substr_len-1]='\0';
+            ++nr_token;
+            break;
+          }
+          case ')':{tokens[nr_token++].type=')';break;}
           default: TODO();
         }
 
@@ -101,9 +155,19 @@ uint32_t expr(char *e, bool *success) {
     *success = false;
     return 0;
   }
-
+  for (int i = 0; i < nr_token; i ++)
+  {
+	  if (tokens[i].type == '*' && (i == 0 ||(tokens[i-1].type!='0'&&tokens[i-1].type!='6'&&tokens[i-1].type!='r'&&tokens[i-1].type!=')')) ) 
+		  tokens[i].type = 'p';//it is a point
+  }
   /* TODO: Insert codes to evaluate the expression. */
-  TODO();
-
-  return 0;
+  bool suc=1;
+  uint32_t res=eval(0,nr_token-1,&suc);
+  if (suc==0)
+  {
+	  *success=false;
+	  return 0;
+  }
+  *success=true;
+  return res;
 }
