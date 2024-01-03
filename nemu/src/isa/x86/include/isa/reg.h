@@ -2,6 +2,7 @@
 #define __X86_REG_H__
 
 #include "common.h"
+#include "mmu.h"
 
 #define PC_START IMAGE_START
 
@@ -32,6 +33,40 @@ typedef struct {
 
   vaddr_t pc;
 
+  union{
+      struct {
+        uint32_t CF: 1;
+        uint32_t   : 1;
+        uint32_t PF: 1;
+        uint32_t   : 1;
+        uint32_t AF: 1;
+        uint32_t   : 1;
+        uint32_t ZF: 1;
+        uint32_t SF: 1;
+        uint32_t TF: 1;
+        uint32_t IF: 1;
+        uint32_t DF: 1;
+        uint32_t OF: 1;
+        uint32_t IOPL: 2;
+        uint32_t NT: 1;
+        uint32_t   : 1;
+        uint32_t RF: 1;
+        uint32_t VM: 1;
+        uint32_t   : 14;
+      };
+      uint32_t val;
+    };
+    struct {
+    uint16_t limit;
+    uint32_t base;
+  } IDTR; // IDT Register
+
+  CR0 cr0;
+  CR3 cr3;
+
+  uint16_t CS, SS, DS, ES, FS, GS;
+
+  bool INTR;
 } CPU_state;
 
 static inline int check_reg_index(int index) {
