@@ -134,9 +134,8 @@ static bool make_token(char *e) {
             break;
           }
           case ')':{tokens[nr_token++].type=')';break;}
-          default: TODO();
+          default: break;
         }
-
         break;
       }
     }
@@ -149,7 +148,118 @@ static bool make_token(char *e) {
 
   return true;
 }
-
+bool check_parentheses(int p,int q)
+{
+	if (tokens[p].type!='('||tokens[q].type!=')') return false;
+	int pat=0;
+	for (int i=p+1;i<q;++i)
+		if (tokens[i].type=='(') ++pat;
+		else if (tokens[i].type==')')
+		{
+			--pat;
+			if (pat<0) return false;
+		}
+	return true;
+}
+uint32_t hex_cal(char ch)
+{
+	return (('a'<=ch&&ch<='f')?ch-'a'+10:(('A'<=ch&&ch<='F')?ch-'A'+10:ch-'0'));
+}
+int opt_pri(int tp)
+{
+	switch (tp)
+	{
+		case '&':return 1;
+		case '!':return 2;
+		case '=':return 2;
+		case '+':return 3;
+		case '-':return 3;
+		case '*':return 4;
+		case '/':return 4;
+		default:return 0;
+	}
+}
+uint32_t eval(int p, int q,bool *success) {
+  if (p > q) {
+	*success=false;
+	return 0;
+    /* Bad expression */
+  }
+  else if (p == q) {
+	 if (tokens[p].type!='0'&&tokens[p].type!='r'&&tokens[p].type!='6')
+	 {
+		 *success=false;
+		 return 0;
+	 }
+	 uint32_t val=0,len=strlen(tokens[p].str);
+	 if (tokens[p].type=='0')
+		for (int i=0;i<len;++i) val=val*10+tokens[p].str[i]-'0';
+	 else if (tokens[p].type=='6')
+		for (int i=0;i<len;++i) val=val*16+hex_cal(tokens[p].str[i]);
+	 else
+	 {
+		 bool suc=false;
+		 val=isa_reg_str2val(tokens[p].str,&suc);
+		 if (!suc) {*success=false;return 0;}
+	 } 
+	 return val;
+    /* Single token.
+     * For now this token should be a number.
+     * Return the value of the number.
+     */
+  }
+  else if (check_parentheses(p, q) == true) {
+    /* The expression is surrounded by a matched pair of parentheses.
+     * If that is the case, just throw away the parentheses.
+     */
+	bool suc=true;
+	uint32_t res=eval(p+1,q-1,&suc);
+	if (suc==false) {*success=false;return 0;}
+    return res;
+  }
+  else {
+    int op=-1,pat;
+	for (int i=p;i<=q;++i)
+	if (opt_pri(tokens[i].type)>0)
+	{
+		pat=0;
+		for (int j=p;j<i;++j)
+			if (tokens[j].type=='(') ++pat;
+			else if (tokens[j].type==')') --pat;
+		if (pat!=0) continue;
+		if (op==-1||opt_pri(tokens[op].type)>=opt_pri(tokens[i].type)) op=i;
+	}
+	if (op!=-1)
+	{
+		bool suc1=true,suc2=true;
+	    uint32_t val1 = eval(p, op - 1,&suc1);
+		uint32_t val2 = eval(op + 1, q,&suc2);
+		if (!suc1||!suc2) {*success=false;return 0;}
+		switch (tokens[op].type) {
+		case '+': return val1 + val2;
+		case '-': return val1-val2;
+		case '*': return val1*val2;
+		case '/':
+		{
+			if (val2==0) {*success=false;return 0;}
+			return val1/val2;
+		}
+		case '=':return val1==val2;
+		case '!':return val1!=val2;
+		case '&':return val1&&val2;
+		default:{*success=false;return 0;}
+		}
+	}
+	else if (tokens[p].type!='p') {*success=false;return 0;}
+	else
+	{
+		bool suc=true;
+		uint32_t val=eval(p+1,q,&suc);
+		if (!suc||val>=PMEM_SIZE) {*success=false;return 0;}
+		return pmem[val];
+	}
+  }
+}
 uint32_t expr(char *e, bool *success) {
   if (!make_token(e)) {
     *success = false;
