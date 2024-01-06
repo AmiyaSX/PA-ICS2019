@@ -44,6 +44,7 @@ static regex_t re[NR_REGEX] = {};
 /* Rules are used for many times.
  * Therefore we compile them only once before any usage.
  */
+uint32_t isa_reg_str2val(char*, bool*);
 void init_regex() {
   int i;
   char error_msg[128];
