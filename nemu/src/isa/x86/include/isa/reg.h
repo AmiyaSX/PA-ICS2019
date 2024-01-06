@@ -54,7 +54,7 @@ typedef struct {
   struct {
     uint16_t limit;
     uint32_t base;
-  } IDTR; // IDT Register
+  } idtr; // IDT Register
 
   CR0 cr0;
   CR3 cr3;
