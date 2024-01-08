@@ -42,14 +42,52 @@ make_EHelper(popa) {
   //rtl_mv(&cpu.esp,&s0);
   print_asm("popa");
 }
-make_EHelper(movsb)
-{
-	rtl_lm(&s0,&cpu.esi,1);
-	rtl_sm(&cpu.edi,&s0,1);
-	++cpu.esi;
-	++cpu.edi;
-	print_asm("movsb");
+
+make_EHelper(movsb) {
+  int incdec = 1;
+  switch (decinfo.opcode & 0xff) {
+    case 0xa4:
+      incdec = cpu.eflags.DF ? -1 : 1;
+      rtl_lr(&s0, R_ESI, 4);
+      rtl_lm(&s1, &s0, 1);
+      s0 += incdec;
+      rtl_sr(R_ESI, &s0, 4);
+      rtl_lr(&s0, R_EDI, 4);
+      rtl_sm(&s0, &s1, 1);
+      s0 += incdec;
+      rtl_sr(R_EDI, &s0, 4);
+      print_asm("movsb");
+      break;
+    case 0xa5:
+      if (decinfo.isa.is_operand_size_16) {
+        incdec = cpu.eflags.DF ? -2 : 2;
+        rtl_lr(&s0, R_ESI, 4);
+        rtl_lm(&s1, &s0, 2);
+        s0 += incdec;
+        rtl_sr(R_ESI, &s0, 4);
+        rtl_lr(&s0, R_EDI, 4);
+        rtl_sm(&s0, &s1, 2);
+        s0 += incdec;
+        rtl_sr(R_EDI, &s0, 4);
+        print_asm("movsw");
+      } else {
+        incdec = cpu.eflags.DF ? -4 : 4;
+        rtl_lr(&s0, R_ESI, 4);
+        rtl_lm(&s1, &s0, 4);
+        s0 += incdec;
+        rtl_sr(R_ESI, &s0, 4);
+        rtl_lr(&s0, R_EDI, 4);
+        rtl_sm(&s0, &s1, 4);
+        s0 += incdec;
+        rtl_sr(R_EDI, &s0, 4);
+        print_asm("movsl");
+      }
+      break;
+    default:
+      panic("movs");
+  }
 }
+
 make_EHelper(movswd)
 {
 	if (id_dest->width!=2&&id_dest->width!=4) assert(0);
